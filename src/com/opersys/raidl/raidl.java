@@ -264,7 +264,7 @@ public class raidl {
                 }
             }
 
-            System.exit(reverseAidl(cmdLine.hasOption("v"), serviceName, methodName, methodCode));
+            System.exit(reverseAidl(cmdLine.hasOption("n"), serviceName, methodName, methodCode));
 
         } catch (ParseException e) {
             e.printStackTrace();
