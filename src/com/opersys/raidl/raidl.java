@@ -3,10 +3,10 @@ package com.opersys.raidl;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import org.apache.commons.cli.*;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.lang.reflect.TypeVariable;
 import java.util.*;
 
 public class raidl {
@@ -33,6 +33,11 @@ public class raidl {
             ex.printStackTrace(System.err);
             return 1;
         }
+    }
+
+    private static int showVersion() {
+        System.out.println("raidl: version 1.0");
+        return 0;
     }
 
     private static String join(Collection<?> s, String delimiter) {
@@ -74,7 +79,7 @@ public class raidl {
         return isRemoteMethod;
     }
 
-    private static int reverseAidl(String serviceName) {
+    private static int reverseAidl(boolean showCodes, String serviceName, String desiredMethodName, Integer desiredMethodCode) {
         IBinder serviceBinder;
         String serviceClassName, packageName;
         Class<?> serviceClass, serviceStubClass;
@@ -82,6 +87,12 @@ public class raidl {
         LinkedList<String> aidlMethods;
         Map<String, Method> serviceMethods;
         SortedSet<String> classImports;
+        boolean singleDisplay = false;
+
+        // Determine if we output a full AIDL or just the signature of one method.
+
+        if (desiredMethodName != null || desiredMethodCode != null)
+            singleDisplay = true;
 
         serviceBinder = ServiceManager.getService(serviceName);
 
@@ -100,10 +111,6 @@ public class raidl {
 
             serviceClass = raidl.class.getClassLoader().loadClass(serviceClassName);
             serviceStubClass = raidl.class.getClassLoader().loadClass(serviceClassName + "$Stub");
-
-            System.out.println("// Service: " + serviceName
-                    + ", Interface: " + serviceClassName
-                    + ", Stub: " + serviceStubClass.getCanonicalName());
 
             packageName = serviceClassName.substring(0, serviceClassName.lastIndexOf("."));
             //serviceClassName = serviceClassName.substring(serviceClassName.lastIndexOf(".") + 1);
@@ -139,6 +146,15 @@ public class raidl {
                 int paramNo = 1;
 
                 serviceCodeMethodName = serviceCodesMethods.get(serviceCode);
+
+                // Examine just what the user passed as command line argument.
+
+                if (desiredMethodCode != null && !serviceCode.equals(desiredMethodCode))
+                    continue;
+
+                if (desiredMethodName != null && !desiredMethodName.equals(serviceCodeMethodName))
+                    continue;
+
                 serviceMethod = serviceMethods.get(serviceCodeMethodName);
                 methodParamTypes = new LinkedList<String>();
 
@@ -167,24 +183,34 @@ public class raidl {
                             + serviceMethod.getName()
                             + "("
                             + methodParamString
-                            + ");\n");
+                            + ");"
+                            + (showCodes ? " // " + serviceCode : "")
+                    );
                 }
             }
 
-            System.out.println("package " + packageName + ";\n");
+            // Displaying starts here.
 
-            if (classImports.size() != 0) {
-                for (String classImport : classImports)
-                    System.out.println("import " + classImport + ";");
-                System.out.println("\n");
+            if (!singleDisplay) {
+                System.out.println("// Service: " + serviceName + ", Interface: " + serviceClassName);
+                System.out.println("package " + packageName + ";\n");
+
+                if (classImports.size() > 0) {
+                    for (String classImport : classImports)
+                        System.out.println("import " + classImport + ";");
+
+                    System.out.println();
+                }
+
+                System.out.println("interface " + serviceClass.getSimpleName() + " {") ;
             }
 
-            System.out.println("interface " + serviceClass.getSimpleName() + " {") ;
+            System.out.println((!singleDisplay ? "    " : "")
+                    + join(aidlMethods, "\n\n"
+                    + (!singleDisplay ? "    " : "")));
 
-            for (String aidlMethod : aidlMethods)
-                System.out.println("    " + aidlMethod);
-
-            System.out.println("}");
+            if (!singleDisplay)
+                System.out.println("}");
 
         } catch (RemoteException e) {
             e.printStackTrace();
@@ -201,14 +227,45 @@ public class raidl {
     }
 
     public static void main(String[] args) {
+        boolean showCodes = false;
+        Options opts;
+        CommandLineParser cmdLineParser;
+        CommandLine cmdLine;
+        String serviceName, methodName = null;
+        Integer methodCode = null;
 
-        if (args.length != 1) {
-            System.out.println("Arguments: -l | service_name");
+        opts = new Options();
+
+        opts.addOption("n", false, "Display method code");
+        opts.addOption("v", false, "Show program version");
+
+        cmdLineParser = new BasicParser();
+
+        try {
+            cmdLine = cmdLineParser.parse(opts, args);
+
+            if (cmdLine.hasOption("v"))
+                System.exit(showVersion());
+
+            if (cmdLine.getArgs().length < 1)
+                System.exit(showVersion());
+
+            serviceName = cmdLine.getArgs()[0];
+
+            if (cmdLine.getArgs().length == 2) {
+                try {
+                    methodCode = Integer.parseInt(cmdLine.getArgs()[1]);
+                } catch (NumberFormatException ignored) {
+                    methodName = cmdLine.getArgs()[1];
+                }
+            }
+
+            System.exit(reverseAidl(cmdLine.hasOption("v"), serviceName, methodName, methodCode));
+
+        } catch (ParseException e) {
+            e.printStackTrace();
         }
 
-        if (args[0].equals("-l"))
-            System.exit(listServices());
-        else
-            System.exit(reverseAidl(args[0]));
+        System.exit(0);
     }
 }
