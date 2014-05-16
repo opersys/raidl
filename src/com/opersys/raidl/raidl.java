@@ -238,6 +238,7 @@ public class raidl {
 
         opts.addOption("n", false, "Display method code");
         opts.addOption("v", false, "Show program version");
+        opts.addOption("l", false, "List services and their interface");
 
         cmdLineParser = new BasicParser();
 
@@ -246,6 +247,9 @@ public class raidl {
 
             if (cmdLine.hasOption("v"))
                 System.exit(showVersion());
+
+            if (cmdLine.hasOption("l"))
+                System.exit(listServices());
 
             if (cmdLine.getArgs().length < 1)
                 System.exit(showVersion());
