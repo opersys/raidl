@@ -51,7 +51,7 @@ public class Raidl {
     }
 
     private static int showVersion() {
-        System.out.println("Raidl: version 1.0");
+        System.out.println("Raidl: version 0.9.0");
         return 0;
     }
 
