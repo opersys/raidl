@@ -1,0 +1,2 @@
+export CLASSPATH=/system/app/raidl.apk
+exec app_process /system/app com.opersys.raidl.Raidl "$@"
