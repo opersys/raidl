@@ -4,13 +4,9 @@ include $(CLEAR_VARS)
 LOCAL_SRC_FILES := $(call all-java-files-under, src)
 LOCAL_PACKAGE_NAME := raidl
 LOCAL_MODULE_TAGS := optional
-LOCAL_STATIC_JAVA_LIBRARIES := commons_cli
+LOCAL_PROGUARD_ENABLED := disabled
+
 include $(BUILD_PACKAGE)
-
-include $(CLEAR_VARS)
-
-LOCAL_PREBUILT_STATIC_JAVA_LIBRARIES := libs/commons-cli-1.2.jar
-include $(BUILD_MULTI_PREBUILT)
 
 include $(CLEAR_VARS)
 

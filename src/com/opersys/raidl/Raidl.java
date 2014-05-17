@@ -1,15 +1,30 @@
+/*
+ * Copyright (C) 2014 Opersys inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.opersys.raidl;
 
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
-import org.apache.commons.cli.*;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
 
-public class raidl {
+public class Raidl {
 
     private static int listServices() {
         try {
@@ -36,7 +51,7 @@ public class raidl {
     }
 
     private static int showVersion() {
-        System.out.println("raidl: version 1.0");
+        System.out.println("Raidl: version 1.0");
         return 0;
     }
 
@@ -109,8 +124,8 @@ public class raidl {
                 return 1;
             }
 
-            serviceClass = raidl.class.getClassLoader().loadClass(serviceClassName);
-            serviceStubClass = raidl.class.getClassLoader().loadClass(serviceClassName + "$Stub");
+            serviceClass = Raidl.class.getClassLoader().loadClass(serviceClassName);
+            serviceStubClass = Raidl.class.getClassLoader().loadClass(serviceClassName + "$Stub");
 
             packageName = serviceClassName.substring(0, serviceClassName.lastIndexOf("."));
             //serviceClassName = serviceClassName.substring(serviceClassName.lastIndexOf(".") + 1);
@@ -227,28 +242,17 @@ public class raidl {
     }
 
     public static void main(String[] args) {
-        boolean showCodes = false;
-        Options opts;
-        CommandLineParser cmdLineParser;
         CommandLine cmdLine;
         String serviceName, methodName = null;
         Integer methodCode = null;
 
-        opts = new Options();
-
-        opts.addOption("n", false, "Display method code");
-        opts.addOption("v", false, "Show program version");
-        opts.addOption("l", false, "List services and their interface");
-
-        cmdLineParser = new BasicParser();
-
         try {
-            cmdLine = cmdLineParser.parse(opts, args);
+            cmdLine = new CommandLine(args, "-n", "-v", "-l");
 
-            if (cmdLine.hasOption("v"))
+            if (cmdLine.hasOption("-v"))
                 System.exit(showVersion());
 
-            if (cmdLine.hasOption("l"))
+            if (cmdLine.hasOption("-l"))
                 System.exit(listServices());
 
             if (cmdLine.getArgs().length < 1)
@@ -264,10 +268,10 @@ public class raidl {
                 }
             }
 
-            System.exit(reverseAidl(cmdLine.hasOption("n"), serviceName, methodName, methodCode));
+            System.exit(reverseAidl(cmdLine.hasOption("-n"), serviceName, methodName, methodCode));
 
-        } catch (ParseException e) {
-            e.printStackTrace();
+        } catch (CommandLineException e) {
+            System.err.println(e.getMessage());
         }
 
         System.exit(0);
