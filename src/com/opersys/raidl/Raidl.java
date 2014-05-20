@@ -138,9 +138,11 @@ public class Raidl {
         // This is a list of methods in IActivityManager for which the service code doesn't
         // quite give us the method name after our simple transformation.
         String[][] activityServiceQuirks = {
-                { "clearAppData", "clearApplicationUserData" },
-                { "getDeviceConfiguration", "getDeviceConfigurationInfo" },
-                { "startBackupAgent", "bindBackupAgent" }
+                { "clearAppData", "clearApplicationUserData" }, // 4.1
+                { "getDeviceConfiguration", "getDeviceConfigurationInfo" }, // 4.1
+                { "startBackupAgent", "bindBackupAgent" }, // 4.1
+                { "killApplicationWithAppid", "killApplicationWithAppId" }, // 4.4
+                { "resizeStack", "resizeStackBox" }, // 4.4
         };
 
         if (transactionCodeName.startsWith("TRANSACTION_")) {
