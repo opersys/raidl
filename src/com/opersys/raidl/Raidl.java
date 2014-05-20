@@ -130,6 +130,48 @@ public class Raidl {
         return serviceClass;
     }
 
+    private static boolean looksLikeTransactionCode(String transactionCodeName) {
+        return transactionCodeName.startsWith("TRANSACTION_") || transactionCodeName.endsWith("_TRANSACTION");
+    }
+
+    private static String getMethodNameForTransaction(String serviceName, String transactionCodeName) {
+        // This is a list of methods in IActivityManager for which the service code doesn't
+        // quite give us the method name after our simple transformation.
+        String[][] activityServiceQuirks = {
+                { "clearAppData", "clearApplicationUserData" },
+                { "getDeviceConfiguration", "getDeviceConfigurationInfo" },
+                { "startBackupAgent", "bindBackupAgent" }
+        };
+
+        if (transactionCodeName.startsWith("TRANSACTION_")) {
+            return transactionCodeName.replace("TRANSACTION_", "");
+        }
+        // This is to handle transaction codes in the style of IActivityManager.java
+        else if (transactionCodeName.endsWith("_TRANSACTION")) {
+            String[] transactMethNameParts = transactionCodeName.replace("_TRANSACTION", "").split("_");
+            String transactMethName = "";
+
+            for (String namePart : transactMethNameParts) {
+                if (transactMethName.equals(""))
+                    transactMethName += namePart.toLowerCase();
+                else
+                    transactMethName += namePart.substring(0, 1) + namePart.substring(1).toLowerCase();
+            }
+
+            if (serviceName.equals("activity")) {
+                for (String[] quirk : activityServiceQuirks) {
+                    if (quirk[0].equals(transactMethName))
+                        return quirk[1];
+                }
+            }
+
+            return transactMethName;
+        }
+
+        throw new IllegalArgumentException(
+                "Codename doesn't look like a transaction code constant: " + transactionCodeName);
+    }
+
     private static int reverseAidl(boolean showCodes, String serviceName, String desiredMethodName, Integer desiredMethodCode) {
         IBinder serviceBinder;
         String serviceClassName, packageName;
@@ -161,7 +203,11 @@ public class Raidl {
             }
 
             serviceClass = tryloadServiceClass(serviceClassName);
-            serviceStubClass = Raidl.class.getClassLoader().loadClass(serviceClass.getCanonicalName() + "$Stub");
+
+            if (!serviceName.equals("activity"))
+                serviceStubClass = Raidl.class.getClassLoader().loadClass(serviceClass.getCanonicalName() + "$Stub");
+            else
+                serviceStubClass = serviceClass;
 
             packageName = serviceClass.getCanonicalName().substring(0, serviceClass.getCanonicalName().lastIndexOf("."));
 
@@ -170,11 +216,13 @@ public class Raidl {
             // Get the transaction codes.
             for (Field serviceField : serviceStubClass.getDeclaredFields()) {
                 int serviceFieldValue;
+                String methodName;
 
-                if (serviceField.getType() == int.class && serviceField.getName().startsWith("TRANSACTION_")) {
+                if (serviceField.getType() == int.class && looksLikeTransactionCode(serviceField.getName())) {
                     serviceField.setAccessible(true);
                     serviceFieldValue = serviceField.getInt(null);
-                    serviceCodesMethods.put(serviceFieldValue, serviceField.getName().replace("TRANSACTION_", ""));
+                    methodName = getMethodNameForTransaction(serviceName, serviceField.getName());
+                    serviceCodesMethods.put(serviceFieldValue, methodName);
                 }
             }
 
@@ -208,6 +256,9 @@ public class Raidl {
                 serviceMethod = serviceMethods.get(serviceCodeMethodName);
                 methodParamTypes = new LinkedList<String>();
 
+                if (serviceMethod == null)
+                    throw new NullPointerException("Could not find method: " + serviceCodeMethodName);
+
                 if (isRemoteMethod(serviceMethod)) {
                     methodReturnType = serviceMethod.getReturnType();
                     methodParams = serviceMethod.getParameterTypes();
@@ -233,7 +284,7 @@ public class Raidl {
                             + serviceMethod.getName()
                             + "("
                             + methodParamString
-                            + ");"
+                            + ") throws RemoteException;"
                             + (showCodes ? " // " + serviceCode : "")
                     );
                 }
