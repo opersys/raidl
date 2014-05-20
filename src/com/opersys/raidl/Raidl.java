@@ -94,10 +94,46 @@ public class Raidl {
         return isRemoteMethod;
     }
 
+    private static Class tryloadServiceClass(String serviceClassName) throws ClassNotFoundException {
+        Class serviceClass = null;
+        int idx = 0;
+
+        // This is a list of namespaces in which to search for service that might return a simplified
+        // interface name instead of a canonical name.
+        String[] androidNamespacesPrefixes = {
+                "",
+                "android.os.",
+                "android.os.storage.",
+                "android.service.",
+                "android.service.notification.",
+                "android.service.textservice.",
+                "android.accessibilityservice"
+        };
+
+        while (serviceClass == null) {
+            String augmentedInterfaceName;
+
+            if (idx == androidNamespacesPrefixes.length)
+                throw new ClassNotFoundException("Class not found for "
+                        + serviceClassName
+                        + " (C++ services not supported)");
+
+            augmentedInterfaceName = androidNamespacesPrefixes[idx++] + serviceClassName;
+
+            try {
+                serviceClass = Raidl.class.getClassLoader().loadClass(augmentedInterfaceName);
+            } catch (ClassNotFoundException ex) {
+                serviceClass = null;
+            }
+        }
+
+        return serviceClass;
+    }
+
     private static int reverseAidl(boolean showCodes, String serviceName, String desiredMethodName, Integer desiredMethodCode) {
         IBinder serviceBinder;
         String serviceClassName, packageName;
-        Class<?> serviceClass, serviceStubClass;
+        Class<?> serviceClass = null, serviceStubClass;
         SortedMap<Integer, String> serviceCodesMethods;
         LinkedList<String> aidlMethods;
         Map<String, Method> serviceMethods;
@@ -124,11 +160,10 @@ public class Raidl {
                 return 1;
             }
 
-            serviceClass = Raidl.class.getClassLoader().loadClass(serviceClassName);
-            serviceStubClass = Raidl.class.getClassLoader().loadClass(serviceClassName + "$Stub");
+            serviceClass = tryloadServiceClass(serviceClassName);
+            serviceStubClass = Raidl.class.getClassLoader().loadClass(serviceClass.getCanonicalName() + "$Stub");
 
-            packageName = serviceClassName.substring(0, serviceClassName.lastIndexOf("."));
-            //serviceClassName = serviceClassName.substring(serviceClassName.lastIndexOf(".") + 1);
+            packageName = serviceClass.getCanonicalName().substring(0, serviceClass.getCanonicalName().lastIndexOf("."));
 
             serviceCodesMethods = new TreeMap<Integer, String>();
 
