@@ -20,8 +20,6 @@ import java.util.*;
 
 public class CommandLine {
 
-    private LinkedList<String> rawArgsList;
-
     private LinkedList<String> finalArgs;
 
     private Set<String> passedOpts;

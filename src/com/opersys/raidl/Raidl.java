@@ -19,12 +19,19 @@ package com.opersys.raidl;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.util.Log;
+import com.opersys.raidl.output.AidlOutputFormatter;
+import com.opersys.raidl.output.ListOutputFormatter;
+import com.opersys.raidl.output.OutputFormatter;
+import com.opersys.raidl.output.SingleAidlOutputFormatter;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.*;
 
 public class Raidl {
+
+    private static String TAG = "Raidl";
 
     private static int listServices() {
         try {
@@ -50,35 +57,16 @@ public class Raidl {
         }
     }
 
-    private static int showVersion() {
+    private static int showUsage() {
         System.out.println("Raidl: version 0.9.0");
+        System.out.println("Copyright (C) 2014, Opersys inc. -- www.opersys.com");
+        System.out.println();
+        System.out.println("Usage: raidl");
+        System.out.println("       raidl list");
+        System.out.println("       raidl dump [-l, -n] SERVICE [METHOD | CODE]");
+        System.out.println("          (-l: dump as simple list, -n: add transaction codes)");
+
         return 0;
-    }
-
-    private static String join(Collection<?> s, String delimiter) {
-        StringBuilder builder = new StringBuilder();
-        Iterator<?> iter = s.iterator();
-
-        while (iter.hasNext()) {
-            builder.append(iter.next());
-            if (!iter.hasNext()) {
-                break;
-            }
-            builder.append(delimiter);
-        }
-
-        return builder.toString();
-    }
-
-    private static String simplifyType(Class<?> clazz, String packageName, Set<String> classImports) {
-        if (clazz.getCanonicalName().startsWith("java.lang") || clazz.getCanonicalName().startsWith(packageName))
-            return clazz.getSimpleName();
-        else {
-            if (!(clazz.isPrimitive() || clazz.isArray()))
-                classImports.add(clazz.getCanonicalName());
-
-            return clazz.getSimpleName();
-        }
     }
 
     private static boolean isRemoteMethod(Method method) {
@@ -174,20 +162,30 @@ public class Raidl {
                 "Codename doesn't look like a transaction code constant: " + transactionCodeName);
     }
 
-    private static int reverseAidl(boolean showCodes, String serviceName, String desiredMethodName, Integer desiredMethodCode) {
+    private static int reverseAidl(boolean showCodes, boolean dumpOnly,
+                                   String serviceName, String desiredMethodName, Integer desiredMethodCode) {
         IBinder serviceBinder;
-        String serviceClassName, packageName;
+        String serviceClassName;
         Class<?> serviceClass = null, serviceStubClass;
         SortedMap<Integer, String> serviceCodesMethods;
-        LinkedList<String> aidlMethods;
         Map<String, Method> serviceMethods;
-        SortedSet<String> classImports;
         boolean singleDisplay = false;
+        AidlService aidlService;
+        OutputFormatter outputFormatter;
 
         // Determine if we output a full AIDL or just the signature of one method.
 
         if (desiredMethodName != null || desiredMethodCode != null)
             singleDisplay = true;
+
+        if (dumpOnly)
+            outputFormatter = new ListOutputFormatter();
+        else {
+            if (singleDisplay)
+                outputFormatter = new SingleAidlOutputFormatter();
+            else
+                outputFormatter = new AidlOutputFormatter();
+        }
 
         serviceBinder = ServiceManager.getService(serviceName);
 
@@ -211,7 +209,7 @@ public class Raidl {
             else
                 serviceStubClass = serviceClass;
 
-            packageName = serviceClass.getCanonicalName().substring(0, serviceClass.getCanonicalName().lastIndexOf("."));
+            aidlService = new AidlService(serviceName, serviceClass);
 
             serviceCodesMethods = new TreeMap<Integer, String>();
 
@@ -234,16 +232,9 @@ public class Raidl {
             for (Method serviceMethod : serviceClass.getMethods())
                 serviceMethods.put(serviceMethod.getName(), serviceMethod);
 
-            aidlMethods = new LinkedList<String>();
-            classImports = new TreeSet<String>();
-
             for (Integer serviceCode : serviceCodesMethods.keySet()) {
-                Class<?> methodReturnType;
-                Class<?>[] methodParams;
                 Method serviceMethod;
-                List<String> methodParamTypes;
-                String methodParamString, serviceCodeMethodName;
-                int paramNo = 1;
+                String serviceCodeMethodName;
 
                 serviceCodeMethodName = serviceCodesMethods.get(serviceCode);
 
@@ -256,74 +247,44 @@ public class Raidl {
                     continue;
 
                 serviceMethod = serviceMethods.get(serviceCodeMethodName);
-                methodParamTypes = new LinkedList<String>();
 
-                if (serviceMethod == null)
-                    throw new NullPointerException("Could not find method: " + serviceCodeMethodName);
+                if (isRemoteMethod(serviceMethod))
+                    aidlService.addMethod(serviceCode, serviceMethod);
+            }
 
-                if (isRemoteMethod(serviceMethod)) {
-                    methodReturnType = serviceMethod.getReturnType();
-                    methodParams = serviceMethod.getParameterTypes();
-
-                    for (Class<?> methodParamType : methodParams) {
-                        String methodParamName;
-
-                        if (methodParamType == int.class || methodParamType == long.class)
-                            methodParamName = "n" + paramNo++;
-                        else if (methodParamType == String.class)
-                            methodParamName = "s" + paramNo++;
-                        else
-                            methodParamName = "p" + paramNo++;
-
-                        methodParamTypes.add(
-                                simplifyType(methodParamType, packageName, classImports) + " " + methodParamName);
-                    }
-
-                    methodParamString = join(methodParamTypes, ", ");
-
-                    aidlMethods.add(simplifyType(methodReturnType, packageName, classImports)
-                            + " "
-                            + serviceMethod.getName()
-                            + "("
-                            + methodParamString
-                            + ") throws RemoteException;"
-                            + (showCodes ? " // " + serviceCode : "")
-                    );
+            if (singleDisplay && aidlService.getMethodCodes().length == 0) {
+                if (desiredMethodCode != null) {
+                    System.err.println("Could not find method code "
+                            + desiredMethodCode
+                            + " in service '"
+                            + serviceName + "'");
+                    return 1;
+                }
+                if (desiredMethodName != null) {
+                    System.err.println("Could not find method named '"
+                            + desiredMethodName
+                            + "' in service '"
+                            + serviceName + "'");
+                    return 1;
                 }
             }
 
-            // Displaying starts here.
-
-            if (!singleDisplay) {
-                System.out.println("// Service: " + serviceName + ", Interface: " + serviceClassName);
-                System.out.println("package " + packageName + ";\n");
-
-                if (classImports.size() > 0) {
-                    for (String classImport : classImports)
-                        System.out.println("import " + classImport + ";");
-
-                    System.out.println();
-                }
-
-                System.out.println("interface " + serviceClass.getSimpleName() + " {") ;
-            }
-
-            System.out.println((!singleDisplay ? "    " : "")
-                    + join(aidlMethods, "\n\n"
-                    + (!singleDisplay ? "    " : "")));
-
-            if (!singleDisplay)
-                System.out.println("}");
+            outputFormatter.output(showCodes, aidlService);
 
         } catch (RemoteException e) {
-            e.printStackTrace();
+            String s = "Error communicating with Binder";
+            System.err.println(s);
+            Log.e(TAG, s, e);
 
         } catch (ClassNotFoundException e) {
-            System.err.println("Failed to load class for service '" + serviceName + "'");
-            e.printStackTrace(System.err);
+            String s = "Failed to load class for service '" + serviceName + " (C++ services not supported)'";
+            System.err.println(s);
+            Log.e(TAG, s, e);
 
         } catch (IllegalAccessException e) {
-            e.printStackTrace();
+            String s = "Illegal access exception for service '" + serviceName + "'";
+            System.err.println(s);
+            Log.e(TAG, s, e);
         }
 
         return 0;
@@ -334,29 +295,34 @@ public class Raidl {
         String serviceName, methodName = null;
         Integer methodCode = null;
 
+        if (args.length == 0)
+            System.exit(showUsage());
+
         try {
-            cmdLine = new CommandLine(args, "-n", "-v", "-l");
-
-            if (cmdLine.hasOption("-v"))
-                System.exit(showVersion());
-
-            if (cmdLine.hasOption("-l"))
+            if (args[0].equals("list"))
                 System.exit(listServices());
 
-            if (cmdLine.getArgs().length < 1)
-                System.exit(showVersion());
+            else if (args[0].equals("dump")) {
+                cmdLine = new CommandLine(Arrays.copyOfRange(args, 1, args.length), "-n", "-l");
 
-            serviceName = cmdLine.getArgs()[0];
+                if (cmdLine.getArgs().length == 0)
+                    System.exit(showUsage());
 
-            if (cmdLine.getArgs().length == 2) {
-                try {
-                    methodCode = Integer.parseInt(cmdLine.getArgs()[1]);
-                } catch (NumberFormatException ignored) {
-                    methodName = cmdLine.getArgs()[1];
+                serviceName = cmdLine.getArgs()[0];
+
+                if (cmdLine.getArgs().length == 2) {
+                    try {
+                        methodCode = Integer.parseInt(cmdLine.getArgs()[1]);
+                    } catch (NumberFormatException ignored) {
+                        methodName = cmdLine.getArgs()[1];
+                    }
                 }
-            }
 
-            System.exit(reverseAidl(cmdLine.hasOption("-n"), serviceName, methodName, methodCode));
+                boolean showCodes = cmdLine.hasOption("-n");
+                boolean dumpOnly = cmdLine.hasOption("-l");
+
+                System.exit(reverseAidl(showCodes, dumpOnly, serviceName, methodName, methodCode));
+            }
 
         } catch (CommandLineException e) {
             System.err.println(e.getMessage());
