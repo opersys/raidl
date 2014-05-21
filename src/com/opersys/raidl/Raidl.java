@@ -323,6 +323,8 @@ public class Raidl {
 
                 System.exit(reverseAidl(showCodes, dumpOnly, serviceName, methodName, methodCode));
             }
+            else System.exit(showUsage());
+
 
         } catch (CommandLineException e) {
             System.err.println(e.getMessage());
