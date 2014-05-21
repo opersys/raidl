@@ -58,7 +58,7 @@ public class Raidl {
     }
 
     private static int showUsage() {
-        System.out.println("Raidl: version 0.9.0");
+        System.out.println("Reverse AIDL tool: version 0.9.0");
         System.out.println("Copyright (C) 2014, Opersys inc. -- www.opersys.com");
         System.out.println();
         System.out.println("Usage: raidl");
