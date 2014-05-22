@@ -63,7 +63,7 @@ public class Raidl {
         System.out.println();
         System.out.println("Usage: raidl");
         System.out.println("       raidl list");
-        System.out.println("       raidl dump [-l, -n] SERVICE [METHOD | CODE]");
+        System.out.println("       raidl iface [-l, -n] SERVICE [METHOD | CODE]");
         System.out.println("          (-l: dump as simple list, -n: add transaction codes)");
 
         return 0;
@@ -302,7 +302,7 @@ public class Raidl {
             if (args[0].equals("list"))
                 System.exit(listServices());
 
-            else if (args[0].equals("dump")) {
+            else if (args[0].equals("iface")) {
                 cmdLine = new CommandLine(Arrays.copyOfRange(args, 1, args.length), "-n", "-l");
 
                 if (cmdLine.getArgs().length == 0)
