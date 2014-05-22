@@ -34,18 +34,24 @@ public class Raidl {
     private static String TAG = "Raidl";
 
     private static int listServices() {
+        int idx = 0;
+
         try {
             IBinder serviceBinder;
             String serviceInterface;
+            String[] services;
 
-            for (String serviceName : ServiceManager.listServices()) {
+            services = ServiceManager.listServices();
+            System.out.println("Found " + services.length + " services:");
+
+            for (String serviceName : services) {
                 serviceBinder = ServiceManager.getService(serviceName);
                 serviceInterface = serviceBinder.getInterfaceDescriptor();
 
                 if (!serviceInterface.equals(""))
-                    System.out.println(serviceName + ": " + serviceInterface);
+                    System.out.println(idx++ + "\t" + serviceName + ": [" + serviceInterface + "]");
                 else
-                    System.out.println(serviceName + ": No Interface");
+                    System.out.println(idx++ + "\t" + serviceName + ": []");
             }
 
             return 0;
