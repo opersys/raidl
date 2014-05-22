@@ -1,0 +1,17 @@
+#!/bin/bash
+
+! which adb > /dev/null && echo "Could not find adb in path." && exit 1
+[ ! -z $1 ] && dev="-s $1"
+
+services=$(adb shell raidl list | tail -n +2 | awk '{print $2}' | tr -d ':')
+
+for s in $services; do 
+    echo -n "Dumping AIDL for $s... "
+    adb $dev shell "raidl iface $s 2> /dev/null" > $s.aidl
+    if [ ! -s $s.aidl ]; then
+        rm $s.aidl
+        echo "FAIL"
+    else
+        echo "OK"
+    fi
+done
