@@ -281,16 +281,19 @@ public class Raidl {
             String s = "Error communicating with Binder";
             System.err.println(s);
             Log.e(TAG, s, e);
+            return 1;
 
         } catch (ClassNotFoundException e) {
             String s = "Failed to load class for service '" + serviceName + " (C++ services not supported)'";
             System.err.println(s);
             Log.e(TAG, s, e);
+            return 1;
 
         } catch (IllegalAccessException e) {
             String s = "Illegal access exception for service '" + serviceName + "'";
             System.err.println(s);
             Log.e(TAG, s, e);
+            return 1;
         }
 
         return 0;
@@ -334,6 +337,7 @@ public class Raidl {
 
         } catch (CommandLineException e) {
             System.err.println(e.getMessage());
+            System.exit(1);
         }
 
         System.exit(0);
