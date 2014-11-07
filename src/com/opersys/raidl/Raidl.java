@@ -254,7 +254,7 @@ public class Raidl {
 
                 serviceMethod = serviceMethods.get(serviceCodeMethodName);
 
-                if (isRemoteMethod(serviceMethod))
+                if (serviceMethod != null && isRemoteMethod(serviceMethod))
                     aidlService.addMethod(serviceCode, serviceMethod);
             }
 
